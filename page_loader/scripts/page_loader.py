@@ -1,5 +1,4 @@
-import os
-import argparse
+import os, argparse
 from page_loader import download
 
 

@@ -5,6 +5,7 @@ description = "Page loader library and command-line utility"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "bs4>=0.0.2",
     "pytest>=9.2.0",
     "requests>=2.31.0",
 ]
