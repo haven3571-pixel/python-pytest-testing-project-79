@@ -23,7 +23,10 @@ def is_local(page_url, asset_url):
     return final_path_parsed.netloc == page_url_parsed.netloc
 
 
-def download(url, path):
+def download(url, path=None):
+    
+    if path is None:
+        path = os.getcwd()
     
     if not os.path.isdir(path):
         logger.error("Папка не существует")

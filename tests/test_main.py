@@ -115,3 +115,21 @@ def test_download_target_is_file(tmp_path, caplog):
             download("https://ru.hexlet.io/courses", fake_file)
 
     assert any(record.levelname == "ERROR" for record in caplog.records)
+    
+    
+def test_download_asset_error(tmp_path, caplog):
+    caplog.set_level(logging.ERROR)
+    with requests_mock.Mocker() as m:
+        # Главная страница загрузилась успешно
+        m.get("https://ru.hexlet.io/courses", text=read_file("before.html", "r"))
+        
+        # Но один из ее ресурсов падает с ошибкой (например, 404 или 500)
+        m.get("https://ru.hexlet.io/assets/professions/python.png", status_code=404)
+        m.get("https://ru.hexlet.io/assets/application.css", text="")
+        m.get("https://ru.hexlet.io/packs/js/runtime.js", text="")
+
+        with pytest.raises(requests.exceptions.RequestException):
+            download("https://ru.hexlet.io/courses", tmp_path)
+
+    # Проверяем, что в логе зафиксирована ошибка
+    assert any(record.levelname == "ERROR" for record in caplog.records)
