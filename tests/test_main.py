@@ -102,24 +102,30 @@ def test_logging(tmp_path, caplog):
         
         
 def test_logging_failure(tmp_path, caplog):
+    # 1. Проверяем HTTP ошибку
     with requests_mock.Mocker() as m:
         m.get("https://ru.hexlet.io/courses", status_code=404)
         
         with pytest.raises(requests.exceptions.HTTPError):
             download("https://ru.hexlet.io/courses", tmp_path)
             
-            assert any(record.levelname == "ERROR" for record in caplog.records)
-            
-    with requests_mock.Mocker() as m:
-            m.get("https://ru.hexlet.io/courses", text="<html></html>")
+    # Проверка выполняется ПОСЛЕ того, как блок pytest.raises успешно перехватил ошибку
+    assert any(record.levelname == "ERROR" for record in caplog.records)
+    
+    caplog.clear()  # Очищаем логи перед вторым тестом
 
-            fake_dir = tmp_path / "hd.txt"
-            fake_dir.touch()
-            
-            with pytest.raises(OSError):
-                download("https://ru.hexlet.io/courses",  fake_dir)
-                
-                assert any(record.levelname == "ERROR" for record in caplog.records)
+    # 2. Проверяем файловую ошибку
+    with requests_mock.Mocker() as m:
+        m.get("https://ru.hexlet.io/courses", text="<html></html>")
+
+        fake_dir = tmp_path / "hd.txt"
+        fake_dir.touch()
+        
+        with pytest.raises(OSError):
+            download("https://ru.hexlet.io/courses", fake_dir)
+
+    # Проверка второй ошибки тоже снаружи
+    assert any(record.levelname == "ERROR" for record in caplog.records)
             
         
 def test_cli_unknown_error(monkeypatch, capsys):
