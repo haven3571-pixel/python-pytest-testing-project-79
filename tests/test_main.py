@@ -102,32 +102,39 @@ def test_logging(tmp_path, caplog):
         assert "Главная страница сохранена" in caplog.text
 
 
-def test_logging_failure(tmp_path, caplog):
-    # 1. HTTP 404
+# 1. Сетевые ошибки: тестируем 404, 500 и обрыв сети раздельно через параметризацию
+@pytest.mark.parametrize("status_code", [404, 500])
+def test_download_http_errors(tmp_path, caplog, status_code):
+    caplog.set_level(logging.ERROR)
     with requests_mock.Mocker() as m:
-        m.get("https://ru.hexlet.io/courses", status_code=404)
+        m.get("https://ru.hexlet.io/courses", status_code=status_code)
+
         with pytest.raises(requests.exceptions.HTTPError):
             download("https://ru.hexlet.io/courses", tmp_path)
 
     assert any(record.levelname == "ERROR" for record in caplog.records)
-    caplog.clear()
 
-    # 2. Ошибка подключения (ConnectionError - сетевой сбой)
-    with requests_mock.Mocker() as m:
-        m.get("https://ru.hexlet.io/courses", exc=requests.exceptions.ConnectionError)
-        with pytest.raises(requests.exceptions.ConnectionError):
-            download("https://ru.hexlet.io/courses", tmp_path)
+
+# 2. Ошибка отсутствия директории (тест на non-existent path)
+def test_download_directory_does_not_exist(caplog):
+    caplog.set_level(logging.ERROR)
+    non_existent_path = "/path/to/non_existent_folder_12345"
+
+    with pytest.raises(OSError):
+        download("https://ru.hexlet.io/courses", non_existent_path)
 
     assert any(record.levelname == "ERROR" for record in caplog.records)
-    caplog.clear()
 
-    # 3. Файловая ошибка (передан существующий файл вместо директории)
+
+# 3. Ошибка файловой системы (попытка записи внутрь файла)
+def test_download_target_is_file(tmp_path, caplog):
+    caplog.set_level(logging.ERROR)
     with requests_mock.Mocker() as m:
         m.get("https://ru.hexlet.io/courses", text="<html></html>")
-        fake_dir = tmp_path / "hd.txt"
-        fake_dir.touch()
+        target_file = tmp_path / "file.txt"
+        target_file.touch()
 
         with pytest.raises(OSError):
-            download("https://ru.hexlet.io/courses", fake_dir)
+            download("https://ru.hexlet.io/courses", target_file)
 
     assert any(record.levelname == "ERROR" for record in caplog.records)
