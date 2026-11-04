@@ -2,48 +2,81 @@ import os
 import urllib.parse
 import bs4
 import requests
+import logging
 from page_loader.naming import naming, url_to_filename
 
 
-def download(url, path):
-    folder_name = naming(url)
-    file_name = folder_name.replace("_files", ".html")
-    request = requests.get(url)
+attrs_match = {
+    "img": "src",
+    "link": "href",
+    "script": "src",
+}
 
+
+logger = logging.getLogger(__name__)
+
+
+def is_local(page_url, asset_url):
+    final_path = urllib.parse.urljoin(page_url, asset_url)
+    final_path_parsed = urllib.parse.urlparse(final_path)
+    page_url_parsed = urllib.parse.urlparse(page_url)
+    return final_path_parsed.netloc == page_url_parsed.netloc
+
+
+def download(url, path):
+    logger.info(f"Функция download начала работу по адресу {url}")
+    folder_name = naming(url)
+    file_name = url_to_filename(url)
+    try:
+        request = requests.get(url)
+        request.raise_for_status()
+    except requests.RequestException as e:
+        logger.error(f"Проблема с доступом к {url}, ошибка: {e}")
+        raise
     path_final = os.path.join(path, file_name)
     folder_path = os.path.join(path, folder_name)
     os.makedirs(folder_path, exist_ok=True)
 
-    base_domain = urllib.parse.urlparse(url).netloc
     html: bs4.BeautifulSoup = bs4.BeautifulSoup(request.text, "html.parser")
 
-    for img in html.find_all("img"):
-        src = img.get("src")
-        if not src:
-            continue
-
-        img_url = urllib.parse.urljoin(url, src)
-
-        # Скачиваем только ресурсы с того же домена
-        if urllib.parse.urlparse(img_url).netloc != base_domain:
-            continue    
-    
-        img_url = urllib.parse.urljoin(url, src)
-        img_domain = urllib.parse.urlparse(img_url).netloc
+    for tag in html.find_all(["img", "script", "link"]):
+        tag_attr = attrs_match.get(tag.name)
         
-        print(f"SRC: {src}")
-        print(f"  -> Итоговый URL: {img_url}")
-        print(f"  -> Домен ресурса: {img_domain} | Домен страницы: {base_domain}")
-        print(f"  -> Совпадают? {img_domain == base_domain}\n")
-
-        img_name = url_to_filename(img_url)
-        img["src"] = f"{folder_name}/{img_name}"
-
-        img_bytes = requests.get(img_url).content
-        with open(os.path.join(folder_path, img_name), "wb") as f:
-            f.write(img_bytes)
-
-    with open(path_final, "w", encoding="utf-8") as f:
-        f.write(html.prettify())
-
+        if not tag.get(tag_attr):
+            logger.debug(f"Атрибут {tag_attr} не был найден")
+            continue
+        
+        asset_path = tag.get(tag_attr)
+        
+        if not is_local(url, asset_path):
+            logger.debug(f"Атрибут {tag_attr} указывает на внешний ресурс, пропуск")
+            continue
+        
+        asset_full_path = urllib.parse.urljoin(url, asset_path)
+        asset_file_name = url_to_filename(asset_full_path)
+        
+        content = requests.get(asset_full_path).content
+        
+        local_path = os.path.join(path, folder_name, asset_file_name)
+        
+        tag[tag_attr] = os.path.join(folder_name, asset_file_name)
+        
+        try:
+            with open(local_path, "wb") as f:
+                logger.debug(f"Записали содержимое тега {tag.name}")
+                f.write(content)
+        except OSError as e:
+            logger.error(f"Ошибка с файловой системой: {e}")
+            raise
+        
+    try:
+        with open(path_final, "w", encoding="utf-8") as f:
+            logger.debug("Главная страница сохранена")
+            f.write(str(html))
+    except OSError as e:
+            logger.error(f"Ошибка с файловой системой: {e}")
+            raise
+        
+    logger.info("Функция download закончила работу")
     return path_final
+

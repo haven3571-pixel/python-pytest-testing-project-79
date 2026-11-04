@@ -1,5 +1,8 @@
-import os, argparse
+import os, argparse, logging, sys, requests
 from page_loader import download
+
+
+logging.basicConfig(level=logging.INFO)
 
 
 def main():
@@ -10,8 +13,12 @@ def main():
                         default=os.getcwd(),
                         help="output directory")
     args = parser.parse_args()
-    path = download(args.url, args.output)
-    print(path) 
+    try:
+        path = download(args.url, args.output)
+        print(path) 
+    except (OSError, requests.RequestException) as e:
+        print(f"Ошибка {e}")
+        sys.exit(1)
 
 
 if __name__ == "main":
