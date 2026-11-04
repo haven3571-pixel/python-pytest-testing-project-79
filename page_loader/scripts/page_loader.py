@@ -18,6 +18,7 @@ def main():
         print(path) 
     except Exception as e:
         print(f"Ошибка {e}", file=sys.stderr)
+        logging.error(f"Error: {e}")
         sys.exit(1)
 
 

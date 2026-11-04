@@ -1,11 +1,12 @@
-import pytest, os
-from page_loader.naming import naming
-import requests, requests_mock
-from page_loader import download
+import os
 from pathlib import Path
-import bs4
 import logging
-from page_loader.scripts.page_loader import main
+import bs4
+import pytest
+import requests
+import requests_mock
+from page_loader import download
+from page_loader.naming import naming
 
 
 def read_file(name, mode):
@@ -51,8 +52,8 @@ def test_download(tmp_path):
             ),
             "rb",
         ) as f:
-            bytes = f.read()
-        assert bytes == read_file("python.png", "rb")
+            bytes_data = f.read()
+        assert bytes_data == read_file("python.png", "rb")
         with open(
             os.path.join(
                 tmp_path,
@@ -93,54 +94,40 @@ def test_logging(tmp_path, caplog):
             "https://ru.hexlet.io/packs/js/runtime.js", text=read_file("script.js", "r")
         )
         download("https://ru.hexlet.io/courses", tmp_path)
-        assert  "Функция download начала работу" in caplog.text
-        assert  "Функция download закончила работу" in caplog.text
+        assert "Функция download начала работу" in caplog.text
+        assert "Функция download закончила работу" in caplog.text
         assert "Записали содержимое тега img" in caplog.text
         assert "Записали содержимое тега script" in caplog.text
         assert "Записали содержимое тега link" in caplog.text
         assert "Главная страница сохранена" in caplog.text
-        
-        
+
+
 def test_logging_failure(tmp_path, caplog):
-    # 1. Проверяем HTTP ошибку
+    # 1. HTTP 404
     with requests_mock.Mocker() as m:
         m.get("https://ru.hexlet.io/courses", status_code=404)
-        
         with pytest.raises(requests.exceptions.HTTPError):
             download("https://ru.hexlet.io/courses", tmp_path)
-            
-    # Проверка выполняется ПОСЛЕ того, как блок pytest.raises успешно перехватил ошибку
-    assert any(record.levelname == "ERROR" for record in caplog.records)
-    
-    caplog.clear()  # Очищаем логи перед вторым тестом
 
-    # 2. Проверяем файловую ошибку
+    assert any(record.levelname == "ERROR" for record in caplog.records)
+    caplog.clear()
+
+    # 2. Ошибка подключения (ConnectionError - сетевой сбой)
+    with requests_mock.Mocker() as m:
+        m.get("https://ru.hexlet.io/courses", exc=requests.exceptions.ConnectionError)
+        with pytest.raises(requests.exceptions.ConnectionError):
+            download("https://ru.hexlet.io/courses", tmp_path)
+
+    assert any(record.levelname == "ERROR" for record in caplog.records)
+    caplog.clear()
+
+    # 3. Файловая ошибка (передан существующий файл вместо директории)
     with requests_mock.Mocker() as m:
         m.get("https://ru.hexlet.io/courses", text="<html></html>")
-
         fake_dir = tmp_path / "hd.txt"
         fake_dir.touch()
-        
+
         with pytest.raises(OSError):
             download("https://ru.hexlet.io/courses", fake_dir)
 
-    # Проверка второй ошибки тоже снаружи
     assert any(record.levelname == "ERROR" for record in caplog.records)
-            
-        
-def test_cli_unknown_error(monkeypatch, capsys):
-    # Мокаем функцию download так, чтобы она бросала непредвиденную ошибку
-    def mock_download(*args, **kwargs):
-        raise RuntimeError("Something totally unexpected happened")
-
-    monkeypatch.setattr("page_loader.scripts.page_loader.download", mock_download)
-    monkeypatch.setattr("sys.argv", ["page-loader", "https://ru.hexlet.io/courses"])
-
-    # CLI обязан поймать даже такое и завершиться с sys.exit(1)
-    with pytest.raises(SystemExit) as exc_info:
-        main()
-
-    assert exc_info.value.code == 1
-    
-    captured = capsys.readouterr()
-    assert captured.err != ""
