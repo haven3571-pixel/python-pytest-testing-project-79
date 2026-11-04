@@ -76,7 +76,7 @@ def download(url, path):
     try:
         with open(path_final, "w", encoding="utf-8") as f:
             logger.debug("Главная страница сохранена")
-            f.write(str(html))
+            f.write(html.prettify())
     except OSError as e:
             logger.error(f"Ошибка с файловой системой: {e}")
             raise
