@@ -150,3 +150,40 @@ def test_cli_exit_code_error(tmp_path):
     )
     assert result.returncode != 0
     assert result.stderr != ""
+    
+    
+import pytest
+from page_loader.scripts.page_loader import main
+
+
+def test_cli_handles_unknown_error(monkeypatch, capsys):
+    # Симулируем возникновение ТОЙ САМОЙ "unknown error" внутри download
+    def mock_download_crash(*args, **kwargs):
+        raise RuntimeError("Something totally unknown happened")
+
+    # Подменяем download в модуле скрипта
+    monkeypatch.setattr("page_loader.scripts.page_loader.download", mock_download_crash)
+    monkeypatch.setattr("sys.argv", ["page-loader", "https://ru.hexlet.io/courses"])
+
+    # Проверяем, что CLI корректно перехватывает неизвестную ошибку и делает sys.exit(1)
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == 1
+    captured = capsys.readouterr()
+    assert captured.err != ""
+    
+    
+@pytest.mark.parametrize("error_class", [
+    requests.exceptions.ConnectionError,
+    requests.exceptions.Timeout,
+    requests.exceptions.TooManyRedirects,
+])
+def test_download_unknown_network_error(tmp_path, error_class, caplog):
+    caplog.set_level(logging.ERROR)
+    with requests_mock.Mocker() as m:
+        m.get("https://ru.hexlet.io/courses", exc=error_class)
+        with pytest.raises(requests.exceptions.RequestException):
+            download("https://ru.hexlet.io/courses", tmp_path)
+
+    assert any(record.levelname == "ERROR" for record in caplog.records)
