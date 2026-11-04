@@ -24,6 +24,10 @@ def is_local(page_url, asset_url):
 
 
 def download(url, path):
+    
+    if not os.path.isdir(path):
+        raise OSError("Папка не существует")
+    
     logger.info(f"Функция download начала работу по адресу {url}")
     folder_name = naming(url)
     file_name = url_to_filename(url)
