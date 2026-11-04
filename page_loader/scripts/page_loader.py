@@ -17,7 +17,7 @@ def main():
         path = download(args.url, args.output)
         print(path) 
     except Exception as e:
-        print(f"Ошибка {e}")
+        print(f"Ошибка {e}", file=sys.stderr)
         sys.exit(1)
 
 
