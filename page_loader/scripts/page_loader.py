@@ -16,11 +16,10 @@ def main():
     try:
         path = download(args.url, args.output)
         print(path) 
-    except Exception as e:
-        print(f"Ошибка {e}", file=sys.stderr)
-        logging.error(f"Error: {e}")
+    except (requests.RequestException, OSError) as error:
+        logging.error(f"Error: {error}")
+        print(f"Error: {error}", file=sys.stderr)
         sys.exit(1)
-
 
 if __name__ == "__main__":
     main()

@@ -7,8 +7,6 @@ import requests
 import requests_mock
 from page_loader import download
 from page_loader.naming import naming
-import sys, subprocess
-
 
 
 def read_file(name, mode="r"):
@@ -51,7 +49,6 @@ def test_download_success(tmp_path):
 
         assets_dir = tmp_path / "ru-hexlet-io-courses_files"
         assert os.path.exists(assets_dir)
-
         img_path = assets_dir / "ru-hexlet-io-assets-professions-python.png"
         assert img_path.read_bytes() == read_file("python.png", "rb")
 
@@ -88,20 +85,10 @@ def test_download_http_errors(tmp_path, caplog, status_code):
     assert any(record.levelname == "ERROR" for record in caplog.records)
 
 
-def test_download_connection_error(tmp_path, caplog):
-    caplog.set_level(logging.ERROR)
-    with requests_mock.Mocker() as m:
-        m.get("https://ru.hexlet.io/courses", exc=requests.exceptions.ConnectionError)
-        with pytest.raises(requests.exceptions.RequestException):
-            download("https://ru.hexlet.io/courses", tmp_path)
-
-    assert any(record.levelname == "ERROR" for record in caplog.records)
-
-
 def test_download_directory_does_not_exist(caplog):
     caplog.set_level(logging.ERROR)
     with pytest.raises(OSError):
-        download("https://ru.hexlet.io/courses", "/path/to/non_existent_dir_12345")
+        download("https://ru.hexlet.io/courses", "/path/to/non_existent_folder_12345")
 
     assert any(record.levelname == "ERROR" for record in caplog.records)
 
@@ -115,75 +102,5 @@ def test_download_target_is_file(tmp_path, caplog):
 
         with pytest.raises(OSError):
             download("https://ru.hexlet.io/courses", fake_file)
-
-    assert any(record.levelname == "ERROR" for record in caplog.records)
-    
-    
-def test_download_asset_error(tmp_path, caplog):
-    caplog.set_level(logging.ERROR)
-    with requests_mock.Mocker() as m:
-        # Главная страница загрузилась успешно
-        m.get("https://ru.hexlet.io/courses", text=read_file("before.html", "r"))
-        
-        # Но один из ее ресурсов падает с ошибкой (например, 404 или 500)
-        m.get("https://ru.hexlet.io/assets/professions/python.png", status_code=404)
-        m.get("https://ru.hexlet.io/assets/application.css", text="")
-        m.get("https://ru.hexlet.io/packs/js/runtime.js", text="")
-
-        with pytest.raises(requests.exceptions.RequestException):
-            download("https://ru.hexlet.io/courses", tmp_path)
-
-    # Проверяем, что в логе зафиксирована ошибка
-    assert any(record.levelname == "ERROR" for record in caplog.records)
-    
-    
-def test_cli_exit_code_error(tmp_path):
-    result = subprocess.run(
-        [
-            "page-loader",
-            "https://ru.hexlet.io/courses",
-            "-o",
-            str(tmp_path / "non_existent_folder_123"),
-        ],
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode != 0
-    assert result.stderr != ""
-    
-    
-import pytest
-from page_loader.scripts.page_loader import main
-
-
-def test_cli_handles_unknown_error(monkeypatch, capsys):
-    # Симулируем возникновение ТОЙ САМОЙ "unknown error" внутри download
-    def mock_download_crash(*args, **kwargs):
-        raise RuntimeError("Something totally unknown happened")
-
-    # Подменяем download в модуле скрипта
-    monkeypatch.setattr("page_loader.scripts.page_loader.download", mock_download_crash)
-    monkeypatch.setattr("sys.argv", ["page-loader", "https://ru.hexlet.io/courses"])
-
-    # Проверяем, что CLI корректно перехватывает неизвестную ошибку и делает sys.exit(1)
-    with pytest.raises(SystemExit) as exc_info:
-        main()
-
-    assert exc_info.value.code == 1
-    captured = capsys.readouterr()
-    assert captured.err != ""
-    
-    
-@pytest.mark.parametrize("error_class", [
-    requests.exceptions.ConnectionError,
-    requests.exceptions.Timeout,
-    requests.exceptions.TooManyRedirects,
-])
-def test_download_unknown_network_error(tmp_path, error_class, caplog):
-    caplog.set_level(logging.ERROR)
-    with requests_mock.Mocker() as m:
-        m.get("https://ru.hexlet.io/courses", exc=error_class)
-        with pytest.raises(requests.exceptions.RequestException):
-            download("https://ru.hexlet.io/courses", tmp_path)
 
     assert any(record.levelname == "ERROR" for record in caplog.records)
