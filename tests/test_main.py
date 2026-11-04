@@ -7,6 +7,8 @@ import requests
 import requests_mock
 from page_loader import download
 from page_loader.naming import naming
+import sys, subprocess
+
 
 
 def read_file(name, mode="r"):
@@ -133,3 +135,23 @@ def test_download_asset_error(tmp_path, caplog):
 
     # Проверяем, что в логе зафиксирована ошибка
     assert any(record.levelname == "ERROR" for record in caplog.records)
+    
+    
+def test_cli_exit_code_error(tmp_path):
+    # Запускаем CLI с ошибочным адресом через текущий интерпретатор Python
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "page_loader.scripts.page_loader",
+            "https://ru.hexlet.io/404",
+            "-o",
+            str(tmp_path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    # CLI обязан завершиться с ненулевым кодом выхода (обычно 1)
+    assert result.returncode != 0
+    # И в поток stderr должно поступить сообщение об ошибке
+    assert result.stderr != ""
