@@ -26,6 +26,7 @@ def is_local(page_url, asset_url):
 def download(url, path):
     
     if not os.path.isdir(path):
+        logger.error("Папка не существует")
         raise OSError("Папка не существует")
     
     logger.info(f"Функция download начала работу по адресу {url}")
@@ -39,7 +40,11 @@ def download(url, path):
         raise
     path_final = os.path.join(path, file_name)
     folder_path = os.path.join(path, folder_name)
-    os.makedirs(folder_path, exist_ok=True)
+    try:
+        os.makedirs(folder_path, exist_ok=True)
+    except OSError as e:
+        logger.error(f"Не удалось создать директорию {folder_path}: {e}")
+        raise
 
     html: bs4.BeautifulSoup = bs4.BeautifulSoup(request.text, "html.parser")
 
@@ -59,7 +64,13 @@ def download(url, path):
         asset_full_path = urllib.parse.urljoin(url, asset_path)
         asset_file_name = url_to_filename(asset_full_path)
         
-        content = requests.get(asset_full_path).content
+        try:
+            content = requests.get(asset_full_path)
+            content.raise_for_status()
+            content = content.content
+        except requests.RequestException as e:
+            logger.error(f"Не удалось скачать ресурс {asset_full_path}: {e}")
+            raise
         
         local_path = os.path.join(path, folder_name, asset_file_name)
         
