@@ -137,16 +137,13 @@ def test_download_asset_error(tmp_path, caplog):
     assert any(record.levelname == "ERROR" for record in caplog.records)
     
     
-def test_cli_exit_code_error():
-    # Передаем путь, который гарантированно не существует
+def test_cli_exit_code_error(tmp_path):
     result = subprocess.run(
         [
-            sys.executable,
-            "-m",
-            "page_loader.scripts.page_loader",
+            "page-loader",
             "https://ru.hexlet.io/courses",
             "-o",
-            "/non_existent_directory_path_12345",
+            str(tmp_path / "non_existent_folder_123"),
         ],
         capture_output=True,
         text=True,
