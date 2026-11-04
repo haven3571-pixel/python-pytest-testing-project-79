@@ -137,21 +137,19 @@ def test_download_asset_error(tmp_path, caplog):
     assert any(record.levelname == "ERROR" for record in caplog.records)
     
     
-def test_cli_exit_code_error(tmp_path):
-    # Запускаем CLI с ошибочным адресом через текущий интерпретатор Python
+def test_cli_exit_code_error():
+    # Передаем путь, который гарантированно не существует
     result = subprocess.run(
         [
             sys.executable,
             "-m",
             "page_loader.scripts.page_loader",
-            "https://ru.hexlet.io/404",
+            "https://ru.hexlet.io/courses",
             "-o",
-            str(tmp_path),
+            "/non_existent_directory_path_12345",
         ],
         capture_output=True,
         text=True,
     )
-    # CLI обязан завершиться с ненулевым кодом выхода (обычно 1)
     assert result.returncode != 0
-    # И в поток stderr должно поступить сообщение об ошибке
     assert result.stderr != ""
