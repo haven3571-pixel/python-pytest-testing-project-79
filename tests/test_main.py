@@ -104,3 +104,13 @@ def test_download_target_is_file(tmp_path, caplog):
             download("https://ru.hexlet.io/courses", fake_file)
 
     assert any(record.levelname == "ERROR" for record in caplog.records)
+    
+def test_download_unexpected_error(tmp_path, monkeypatch):
+    def mock_broken_get(*args, **kwargs):
+        raise RuntimeError("Unexpected error")
+
+    # Симулируем неожиданный сбой внутри сетевого запроса
+    monkeypatch.setattr("requests.get", mock_broken_get)
+
+    with pytest.raises(RuntimeError):
+        download("https://ru.hexlet.io/courses", tmp_path)
