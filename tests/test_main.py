@@ -5,6 +5,7 @@ from page_loader import download
 from pathlib import Path
 import bs4
 import logging
+from page_loader.scripts.page_loader import main
 
 
 def read_file(name, mode):
@@ -100,12 +101,14 @@ def test_logging(tmp_path, caplog):
         assert "Главная страница сохранена" in caplog.text
         
         
-def test_logging_failure(tmp_path):
+def test_logging_failure(tmp_path, caplog):
     with requests_mock.Mocker() as m:
         m.get("https://ru.hexlet.io/courses", status_code=404)
         
         with pytest.raises(requests.exceptions.HTTPError):
             download("https://ru.hexlet.io/courses", tmp_path)
+            
+            assert any(record.levelname == "ERROR" for record in caplog.records)
             
     with requests_mock.Mocker() as m:
             m.get("https://ru.hexlet.io/courses", text="<html></html>")
@@ -115,5 +118,17 @@ def test_logging_failure(tmp_path):
             
             with pytest.raises(OSError):
                 download("https://ru.hexlet.io/courses",  fake_dir)
+                
+                assert any(record.levelname == "ERROR" for record in caplog.records)
             
         
+def test_cli_error(monkeypatch):
+    # Подменяем аргументы командной строки (sys.argv), передавая несуществующий URL или плохой путь
+    monkeypatch.setattr("sys.argv", ["page-loader", "https://ru.hexlet.io/404", "-o", "/invalid/path"])
+
+    # Проверяем, что main() завершается именно через sys.exit(1)
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    # Проверяем, что код выхода равен 1
+    assert exc_info.value.code == 1
