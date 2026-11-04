@@ -122,16 +122,19 @@ def test_logging_failure(tmp_path, caplog):
                 assert any(record.levelname == "ERROR" for record in caplog.records)
             
         
-def test_cli_error(monkeypatch, capsys):
-    # Задаем невалидный аргумент
-    monkeypatch.setattr("sys.argv", ["page-loader", "https://ru.hexlet.io/404", "-o", "/invalid/path"])
+def test_cli_unknown_error(monkeypatch, capsys):
+    # Мокаем функцию download так, чтобы она бросала непредвиденную ошибку
+    def mock_download(*args, **kwargs):
+        raise RuntimeError("Something totally unexpected happened")
 
+    monkeypatch.setattr("page_loader.scripts.page_loader.download", mock_download)
+    monkeypatch.setattr("sys.argv", ["page-loader", "https://ru.hexlet.io/courses"])
+
+    # CLI обязан поймать даже такое и завершиться с sys.exit(1)
     with pytest.raises(SystemExit) as exc_info:
         main()
 
-    # 1. Проверяем статус код
     assert exc_info.value.code == 1
-
-    # 2. Проверяем, что сообщение ушло именно в stderr, а не в stdout
+    
     captured = capsys.readouterr()
     assert captured.err != ""
