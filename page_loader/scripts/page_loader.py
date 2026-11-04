@@ -16,7 +16,7 @@ def main():
     try:
         path = download(args.url, args.output)
         print(path) 
-    except (OSError, requests.RequestException) as e:
+    except Exception as e:
         print(f"Ошибка {e}")
         sys.exit(1)
 
